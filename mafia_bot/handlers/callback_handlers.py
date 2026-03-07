@@ -49,9 +49,7 @@ async def profile_callback(callback: CallbackQuery):
             coin=user.coin,
             stones=user.stones,
             protection=user.protection,
-            hang_protect=user.hang_protect,
             docs=user.docs,
-            geroy_protect=user.geroy_protection,
             wins=total_wins,
             all_played=total_played,
             text=text
@@ -143,9 +141,7 @@ async def buy_callback(callback: CallbackQuery):
                 coin=user.coin,
                 stones=user.stones,
                 protection=user.protection,
-                hang_protect=user.hang_protect,
                 docs=user.docs,
-                geroy_protect=user.geroy_protection,
                 wins=total_wins,
                 all_played=total_played,
                 text=""
@@ -166,11 +162,9 @@ async def buy_callback(callback: CallbackQuery):
                     coin=user.coin,
                     stones=user.stones,
                     protection=user.protection,
-                    hang_protect=user.hang_protect,
                     wins=total_wins,
                     all_played=total_played,
                     docs=user.docs,
-                    geroy_protect=user.geroy_protection,
                     text=""
                 ),
                 parse_mode="HTML",
@@ -195,10 +189,8 @@ async def buy_callback(callback: CallbackQuery):
                     first_name=callback.from_user.first_name,
                     coin=user.coin,
                     stones=user.stones,
-                    protection=user.protection,
-                    hang_protect=user.hang_protect,
+                    
                     docs=user.docs,
-                    geroy_protect=user.geroy_protection,
                     wins=total_wins,
                     all_played=total_played,
                     text=""
@@ -222,9 +214,7 @@ async def buy_callback(callback: CallbackQuery):
                     coin=user.coin,
                     stones=user.stones,
                     protection=user.protection,
-                    hang_protect=user.hang_protect,
                     docs=user.docs,
-                    geroy_protect=user.geroy_protection,
                     wins=total_wins,
                     all_played=total_played,
                     text=""
@@ -1592,7 +1582,6 @@ async def toggle_profile_callback(callback: CallbackQuery):
             first_name=callback.from_user.first_name,
             coin=user.coin,
             stones=user.stones,
-            protection=user.protection,
             docs=user.docs,
             wins=total_wins,
             all_played=total_played,

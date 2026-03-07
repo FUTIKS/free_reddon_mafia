@@ -88,62 +88,27 @@ def cart_inline_btn(tg_id):
         "uz": {
             "toggle_protection":f"🛡 - {'🟢 ON' if user.is_protected else ' 🔴 OFF'}",
             "toggle_doc": f"📂 - {'🟢 ON' if user.is_doc else ' 🔴 OFF'}",
-            "toggle_hang":f"🎗️ - {'🟢 ON' if user.is_hang_protected else ' 🔴 OFF'}",
-            "toggle_geroy_protect":f"🔰 - {'🟢 ON' if user.is_geroy_protected else ' 🔴 OFF'} ",
-            "toggle_geroy_use":f"🥷 - {'🟢 ON' if user.is_geroy_use else ' 🔴 OFF'} ",
-            "toggle_active_role_use":f"🎭 - {'🟢 ON' if user.is_active_role_use else ' 🔴 OFF'} ",
             "shop": "🛒 Do'kon",
-            "buy_money": "💶 Sotib olish",
-            "buy_stone": "💎 Sotib olish",
-            "hero": "🥷 Mening Geroyim",
         },
         "ru": {
             "toggle_protection":f"🛡 - {'🟢 ВКЛ' if user.is_protected else ' 🔴 ВЫКЛ'}",
             "toggle_doc": f"📂 - {'🟢 ВКЛ' if user.is_doc else ' 🔴 ВЫКЛ'}",
-            "toggle_hang":f"🎗️ - {'🟢 ВКЛ' if user.is_hang_protected else ' 🔴 ВЫКЛ'}",
-            "toggle_geroy_protect":f"🔰 - {'🟢 ВКЛ' if user.is_geroy_protected else ' 🔴 ВЫКЛ'}",
-            "toggle_geroy_use":f"🥷 - {'🟢 ВКЛ' if user.is_geroy_use else ' 🔴 ВЫКЛ'}",
-            "toggle_active_role_use":f"🎭 - {'🟢 ВКЛ' if user.is_active_role_use else ' 🔴 ВЫКЛ'}",
             "shop": "🛒 Магазин",
-            "buy_money": "💶 Купить",
-            "buy_stone": "💎 Купить",
-            "hero": "🥷 Мой Герой",
         },
         "en": {
             "toggle_protection":f"🛡 - {'🟢 ON' if user.is_protected else ' 🔴 OFF'}",
             "toggle_doc": f"📂 - {'🟢 ON' if user.is_doc else ' 🔴 OFF'}",
-            "toggle_hang":f"🎗️ - {'🟢 ON' if user.is_hang_protected else ' 🔴 OFF'}",
-            "toggle_geroy_protect":f"🔰 - {'🟢 ON' if user.is_geroy_protected else ' 🔴 OFF'}",
-            "toggle_geroy_use":f"🥷 - {'🟢 ON' if user.is_geroy_use else ' 🔴 OFF'}",
-            "toggle_active_role_use":f"🎭 - {'🟢 ON' if user.is_active_role_use else ' 🔴 OFF'}",
             "shop": "🛒 Shop",
-            "buy_money": "💶 Buy",
-            "buy_stone": "💎 Buy",
-            "hero": "🥷 My Hero",
         },
         "tr": {
             "toggle_protection":f"🛡 - {'🟢 ON' if user.is_protected else ' 🔴 OFF'}",
             "toggle_doc": f"📂 - {'🟢 ON' if user.is_doc else ' 🔴 OFF'}",
-            "toggle_hang":f"🎗️ - {'🟢 ON' if user.is_hang_protected else ' 🔴 OFF'}",
-            "toggle_geroy_protect":f"🔰 - {'🟢 ON' if user.is_geroy_protected else ' 🔴 OFF'}",
-            "toggle_geroy_use":f"🥷 - {'🟢 ON' if user.is_geroy_use else ' 🔴 OFF'}",
-            "toggle_active_role_use":f"🎭 - {'🟢 ON' if user.is_active_role_use else ' 🔴 OFF'}",
             "shop": "🛒 Mağaza",
-            "buy_money": "💶 Satın al",
-            "buy_stone": "💎 Satın al",
-            "hero": "🥷 Kahramanım",
         },
         "qz": {
             "toggle_protection":f"🛡 - {'🟢 ВКЛ' if user.is_protected else ' 🔴 ВЫКЛ'}",
             "toggle_doc": f"📂 - {'🟢 ВКЛ' if user.is_doc else ' 🔴 ВЫКЛ'}",
-            "toggle_hang":f"🎗️ - {'🟢 ВКЛ' if user.is_hang_protected else ' 🔴 ВЫКЛ'}",
-            "toggle_geroy_protect":f"🔰 - {'🟢 ВКЛ' if user.is_geroy_protected else ' 🔴 ВЫКЛ'}",
-            "toggle_geroy_use":f"🥷 - {'🟢 ВКЛ' if user.is_geroy_use else ' 🔴 ВЫКЛ'}",
-            "toggle_active_role_use":f"🎭 - {'🟢 ВКЛ' if user.is_active_role_use else ' 🔴 ВЫКЛ'}",
             "shop": "🛒 Дүкен",
-            "buy_money": "💶 Сатып алу",
-            "buy_stone": "💎 Сатып алу",
-            "hero": "🥷 Менің Кейіпкерім",
         },
     }
 
@@ -154,35 +119,9 @@ def cart_inline_btn(tg_id):
             InlineKeyboardButton(text=t["toggle_protection"], callback_data="toggle_protection"),
             InlineKeyboardButton(text=t["toggle_doc"], callback_data="toggle_doc"),
         ],
-        [
-            InlineKeyboardButton(text=t["toggle_hang"], callback_data="toggle_hang"),
-            InlineKeyboardButton(text=t["toggle_geroy_protect"], callback_data="toggle_geroy"),
-        ],
-    ]
-
-    conditional_row = []
-
-    if user and user.is_hero:
-        conditional_row.append(
-            InlineKeyboardButton(text=t["toggle_geroy_use"], callback_data="toggle_geroyuse")
-        )
-
-    if user and UserRole.objects.filter(user_id=user.id, quantity__gt=0).exists():
-        conditional_row.append(
-            InlineKeyboardButton(text=t["toggle_active_role_use"], callback_data="toggle_activerole")
-        )
-
-    if conditional_row:
-        rows.append(conditional_row)
-
-    rows += [
         [InlineKeyboardButton(text=t["shop"], callback_data="cart")],
-        [
-            InlineKeyboardButton(text=t["buy_money"], callback_data="money_money"),
-            InlineKeyboardButton(text=t["buy_stone"], callback_data="money_stone"),
-        ],
-        [InlineKeyboardButton(text=t["hero"], callback_data="geroy_no")],
     ]
+
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -197,45 +136,30 @@ def shop_inline_btn(tg_id):
         "uz": {
             "protect": "🛡 Ximoya - 250 💵",
             "docs": "📂 Hujjatlar - 500 💵",
-            "hang_money": "🎗️ Osilishdan ximoya - 20000 💵",
-            "hang_stone": "🎗️ Osilishdan ximoya - 20 💎",
-            "geroy_protect": "🔰 Geroy himoyasi - 10000 💵",
             "role": "🎭 Rol sotib olish",
             "back": "⬅️ Orqaga",
         },
         "ru": {
             "protect": "🛡 Защита - 250 💵",
             "docs": "📂 Документы - 500 💵",
-            "hang_money": "🎗️ Защита от повешения - 20000 💵",
-            "hang_stone": "🎗️ Защита от повешения - 20 💎",
-            "geroy_protect": "🔰 Защита героя - 10000 💵",
             "role": "🎭 Купить роль",
             "back": "⬅️ Назад",
         },
         "en": {
             "protect": "🛡 Protection - 250 💵",
             "docs": "📂 Documents - 500 💵",
-            "hang_money": "🎗️ Hanging protection - 20000 💵",
-            "hang_stone": "🎗️ Hanging protection - 20 💎",
-            "geroy_protect": "🔰 Hero protection - 10000 💵",
             "role": "🎭 Buy role",
             "back": "⬅️ Back",
         },
         "tr": {
             "protect": "🛡 Koruma - 250 💵",
             "docs": "📂 Belgeler - 500 💵",
-            "hang_money": "🎗️ Asılmaya karşı koruma - 20000 💵",
-            "hang_stone": "🎗️ Asılmaya karşı koruma - 20 💎",
-            "geroy_protect": "🔰 Kahraman koruması - 10000 💵",
             "role": "🎭 Rol satın al",
             "back": "⬅️ Geri",
         },
         "qz": {
             "protect": "🛡 Қорғау - 250 💵",
             "docs": "📂 Құжаттар - 500 💵",
-            "hang_money": "🎗️ Асудан қорғау - 20000 💵",
-            "hang_stone": "🎗️ Асудан қорғау - 20 💎",
-            "geroy_protect": "🔰 Герой қорғауы - 10000 💵",
             "role": "🎭 Роль сатып алу",
             "back": "⬅️ Артқа",
         },
@@ -247,9 +171,6 @@ def shop_inline_btn(tg_id):
         inline_keyboard=[
             [InlineKeyboardButton(text=t["protect"], callback_data="buy_protection_0")],
             [InlineKeyboardButton(text=t["docs"], callback_data="buy_docs_0")],
-            [InlineKeyboardButton(text=t["hang_money"], callback_data="buy_hangprotect_1")],
-            [InlineKeyboardButton(text=t["hang_stone"], callback_data="buy_hangprotect_2")],
-            [InlineKeyboardButton(text=t["geroy_protect"], callback_data="buy_geroyprotect_0")],
             [InlineKeyboardButton(text=t["role"], callback_data="buy_activerole_0")],
             [InlineKeyboardButton(text=t["back"], callback_data="back_profile")],
         ]

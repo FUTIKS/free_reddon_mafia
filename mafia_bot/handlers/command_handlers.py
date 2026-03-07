@@ -144,9 +144,7 @@ async def profile_command(message: Message):
             coin=user.coin,
             stones=user.stones,
             protection=user.protection,
-            hang_protect=user.hang_protect,
             docs=user.docs,
-            geroy_protect=user.geroy_protection,
             wins=total_wins,
             all_played=total_played,
             text=text
