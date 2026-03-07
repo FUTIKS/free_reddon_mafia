@@ -1,5 +1,6 @@
 services:
   bot:
+    container_name: mafia_free_bot
     build: .
     command: >
       sh -c "
