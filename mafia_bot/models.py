@@ -21,20 +21,10 @@ class User(SafeBaseModel):
     coin=models.IntegerField(default=0)
     stones = models.IntegerField(default=0)
     protection=models.IntegerField(default=0)
-    hang_protect=models.IntegerField(default=0)
     docs=models.IntegerField(default=0)
     active_role=models.IntegerField(default=0)
     role = models.CharField(max_length=50, choices=USER_ROLES, default='user')
-    is_vip=models.BooleanField(default=False)
-    is_hero = models.BooleanField(default=False)
-    hero_level = models.IntegerField(default=1)
-    geroy_protection = models.IntegerField(default=0)
-    is_protected = models.BooleanField(default=True)
-    is_hang_protected = models.BooleanField(default=True)
-    is_doc = models.BooleanField(default=True)
-    is_geroy_protected = models.BooleanField(default=True)
-    is_active_role_use = models.BooleanField(default=True)
-    is_geroy_use = models.BooleanField(default=True)
+   
     
     def __str__(self):
         return f"{self.username} - {self.telegram_id}"
@@ -204,7 +194,7 @@ class GameSettings(SafeBaseModel):
     group_id = models.BigIntegerField(unique=True)
     begin_instance=models.BooleanField(default=False)
     begin_instance_time=models.IntegerField(default=300)  
-    number_of_players = models.IntegerField(default=30)
+    number_of_players = models.IntegerField(default=11)
     begin_after_end = models.BooleanField(default=True)
     
     

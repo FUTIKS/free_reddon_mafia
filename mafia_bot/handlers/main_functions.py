@@ -12,10 +12,11 @@ from aiogram.types import Message
 from django.db.models import F as DF
 from aiogram.enums import ChatMemberStatus
 from core.constants import uz_texts,ROLES_BY_COUNT,ru_texts,en_texts,tr_texts,qz_texts
-from mafia_bot.models import Game, GameSettings,User,MostActiveUser, UserRole
+from mafia_bot.models import Game, GameSettings,User,MostActiveUser, UserRole, GroupTrials
 from aiogram.types import ChatPermissions,ChatMemberAdministrator, ChatMemberOwner
 from mafia_bot.utils import games_state, last_wishes,game_tasks, active_role_used,writing_allowed_groups,USER_LANG_CACHE,game_locks,chat_id_game_id
-from mafia_bot.buttons.inline import cart_inline_btn, doc_btn, com_inline_btn, don_inline_btn, mafia_inline_btn, adv_inline_btn, action_inline_btn
+from mafia_bot.buttons.inline import cart_inline_btn, doc_btn, com_inline_btn, don_inline_btn, mafia_inline_btn, action_inline_btn
+
 lock = Lock()
 LANG_TEXTS = {
     "uz": uz_texts,
@@ -59,12 +60,15 @@ DESCRIPTIONS = {
 
 
 
-MAFIA_ROLES = {"don", "mafia", "adv"}
-MAFIA_ROLES_LAB = {"don", "mafia", "adv"}
-PEACE_ROLES = {"peace", "doc", "daydi", "com", "kam", "lover", "nogiron"}
+MAFIA_ROLES = {"don", "mafia", "adv", "spy"}
+MAFIA_ROLES_LAB = {"don", "mafia", "adv", "spy", "lab"}
+SOLO_ROLES = {"killer", "trap", "snyper", "arrow", "traitor", "pirate", "professor","drunk"}
+PEACE_ROLES = {"peace", "doc", "daydi", "com", "kam", "lover", "serg", "kaldun",  "snowball","santa","nogiron","ghost"}
 NIGHT_ACTION_ROLES = {
-    "doc", "daydi", "com", 
-    "don", "mafia", "adv", 
+    "doc", "daydi", "com", "killer", "kaldun",
+    "don", "mafia", "adv", "spy", "lab", "trap",
+    "snyper", "arrow", "traitor", "pirate", "professor",
+     "snowball", "santa","drunk"
 }
 
 LINK_RE = re.compile(
@@ -87,11 +91,27 @@ ROLE_TEAM = {
     "com": "peace",
     "kam": "peace",
     "lover": "peace",
+    "serg": "peace",
+    "kaldun": "peace",
+    "snowball": "peace",
+    "santa": "peace",
     'suid':"peace",
+    "ghost":"peace",
+
     "don": "mafia",
     "mafia": "mafia",
     "adv": "mafia",
-   
+    "spy": "mafia",
+    "lab": "mafia",
+
+    "killer": "solo",
+    "trap": "solo",
+    "snyper": "solo",
+    "arrow": "solo",
+    "traitor": "solo",
+    "drunk":"solo",
+    "pirate": "solo",
+    "professor": "solo",
 }
 
 
@@ -103,7 +123,7 @@ async def send_night_action( tg_id, role, game_id, game, users_after_night, day)
     lover_block_target = night_action.get("lover_block_target")
     if lover_block_target == tg_id:
         return
-    if role in ("peace", "kam","nogiron","suid"):
+    if role in ("peace","serg", "kam","nogiron","suid","ghost"):
         return
     elif role == "doc":
         await send_safe_message(
@@ -128,7 +148,6 @@ async def send_night_action( tg_id, role, game_id, game, users_after_night, day)
             reply_markup=com_inline_btn(game.id, game.chat_id,day=day)
         )
         return
-   
     elif role == "lover":
         await send_safe_message(
             chat_id=tg_id,
@@ -136,7 +155,6 @@ async def send_night_action( tg_id, role, game_id, game, users_after_night, day)
             reply_markup=action_inline_btn(action="lover", own_id=tg_id, players=users_after_night, game_id=game.id, chat_id=game.chat_id,day=day)
         )
         return
-   
     elif role == "don":
         await send_safe_message(
         
@@ -152,14 +170,6 @@ async def send_night_action( tg_id, role, game_id, game, users_after_night, day)
             chat_id=tg_id,
             text=get_actions_lang(tg_id).get("mafia_vote"),
             reply_markup=mafia_inline_btn(players=users_after_night, game_id=game.id,day=day)
-        )
-        return
-    elif role == "adv":
-        await send_safe_message(
-        
-            chat_id=tg_id,
-            text=get_actions_lang(tg_id).get("adv_mask"),
-            reply_markup=adv_inline_btn(players=users_after_night, game_id=game.id, chat_id=game.chat_id,day=day)
         )
         return
    
@@ -184,7 +194,7 @@ def init_game(game_id: int, chat_id: int | None = None):
     with lock:
         if game_id in games_state:
             return
-        max_players = 30
+        max_players = 11
         game_settings = GameSettings.objects.filter(group_id=int(chat_id)).first()
         if game_settings and game_settings.begin_instance:
             max_players = game_settings.number_of_players if game_settings else max_players
@@ -233,10 +243,16 @@ def init_game(game_id: int, chat_id: int | None = None):
             "roles": {},
             "team": {},
 
-           
+            "hero": {
+                "has": set(),
+                'self_protect':set(),
+                "used": set(),
+                "notified": set(), 
+            },
 
             "limits": {
                 "doc_self_heal_used": set(),
+                "traitor_transformed": set(),
             },
 
             "effects": {
@@ -272,11 +288,33 @@ def init_game(game_id: int, chat_id: int | None = None):
 
                 "lover_block_target": None,
 
-              
+                "kaldun_target": None,
+                "killer_target": [],
                 "advokat_target": None,
-              
+                "spy_target": None,
+                "lab_target": None,
+                "drunk_target": None,
 
-          
+                "trap_house": None,
+
+                "snyper_target": None,
+                "arrow_target": None,
+
+                "traitor_target": None,
+
+                "snowball_target": None,
+                "hero_targets":{},
+                "hero_used":{},
+                "pirate": {
+                    "pirate_id": None,
+                    "target_id": None,
+                    "result": None,
+                },
+
+                "professor": {
+                    "target_id": None,
+                    "chosen": None,
+                },
             },
 
             "day_actions": {
@@ -489,6 +527,12 @@ def mark_confirm_done(game_id, voter_id: int):
     if len(pending) == 0:
         event.set()
 
+def get_hero_level(tg_id):
+    try:
+        return User.objects.get(telegram_id=tg_id).hero_level
+    except:
+        return 0
+
 
 def get_most_voted_id(game_id: int):
     all_votes = games_state.get(game_id, {}).get("day_actions", {}).get("votes", [])
@@ -557,6 +601,23 @@ def parse_amount(text: str) -> int | None:
 
     return amount
 
+async def process_santa_reward(target_id, callback):
+    user = User.objects.filter(telegram_id=target_id).first()
+    if not user:
+        user = User.objects.create(
+            telegram_id=target_id,
+            lang='uz',
+            first_name=callback.from_user.first_name,
+            username=callback.from_user.username
+        )
+    user.coin += 20
+    user.save()
+    t= get_lang_text(int(target_id))
+    await send_safe_message(
+        chat_id=target_id,
+        text=t["santa_gift"]
+    )
+
 
 def is_alive(game, tg_id: int) -> bool:
     return int(tg_id) in set(game.get("alive", []))
@@ -572,15 +633,15 @@ def find_game(game_id, tg_id,chat_id,user):
 
         if tg_id in game["players"]:
             return {"message": "already_in"}
-        max_players = game["meta"].get("max_players", 30)
+        max_players = game["meta"].get("max_players", 11)
         if len(game["players"]) >= max_players:
             return {"message": "full"}
 
         game["players"].append(tg_id)
         if game['meta']['game_type']=='turnir':
-            game["users_map"][tg_id]={"first_name":html.escape(user.first_name),"protection":1 if user.protection>=1 and user.is_protected else 0,"docs": 1 if user.docs>=1 and user.is_doc else 0,"hang_protect": 1 if user.hang_protect>=1 and user.is_hang_protected else 0,"tg_id":tg_id}
+            game["users_map"][tg_id]={"first_name":html.escape(user.first_name),"protection":1 if user.protection>=1  else 0,"docs": 1 if user.docs>=1 else 0,"tg_id":tg_id}
         else:
-            game["users_map"][tg_id]={"first_name":html.escape(user.first_name),"protection":1 if user.protection>=1 and user.is_protected else 0,"docs": 1 if user.docs>=1 and user.is_doc else 0,"hang_protect": 1 if user.hang_protect>=1 and user.is_hang_protected else 0,"tg_id":tg_id}
+            game["users_map"][tg_id]={"first_name":html.escape(user.first_name),"protection":1 if user.protection>=1  else 0,"docs": 1 if user.docs>=1 else 0,"tg_id":tg_id}
         game["alive"].append(tg_id)
         if len(game["players"])==max_players:
             return {"message": "full"}
@@ -656,10 +717,31 @@ def night_reset(game_id: int):
 
         na["lover_block_target"] = None
 
+        na["kaldun_target"] = None
+        na["killer_target"] = []
         na["advokat_target"] = None
-       
+        na["spy_target"] = None
+        na["lab_target"] = None
+        na["drunk_target"] = None
 
-    
+        na["trap_house"] = None
+
+        na["snyper_target"] = None
+        na["arrow_target"] = None
+
+        na["traitor_target"] = None
+
+        na["snowball_target"] = None
+
+        # pirate reset
+        na["pirate"]["pirate_id"] = None
+        na["pirate"]["target_id"] = None
+        na["pirate"]["result"] = None
+
+        # professor reset (boxes endi yo'q)
+        na["professor"]["target_id"] = None
+        na["professor"]["chosen"] = None
+
         rt = game.get("runtime", {})
         rt["night_event"] = None
         rt["pending_night"].clear()
@@ -925,10 +1007,10 @@ def get_visible_role_for_com(game, target_id: int, users_map=None) -> str:
     if int(target_id) in adv_masked:
         return "peace"
 
-    # 2) shop protection: mafia bo'lsa tinch ko'rinsin
+    # 2) shop protection: mafia/solo bo'lsa tinch ko'rinsin
     if users_map:
         user = users_map.get(int(target_id))
-        if user and user.get("docs", 0) > 0 and real_role in MAFIA_ROLES_LAB :
+        if user and user.get("docs", 0) > 0 and real_role in (MAFIA_ROLES_LAB | SOLO_ROLES):
             user_qs = User.objects.filter(telegram_id=int(target_id)).first()
             user["docs"] -= 1
             user_qs.docs -= 1
@@ -1025,6 +1107,42 @@ async def notify_new_com(new_com_id: int):
 
 
 
+def traitor_swap_roles(game: dict):
+    roles = game.get("roles", {})
+    alive = set(game.get("alive", []))
+    night_actions = game.get("night_actions", {})
+
+    traitor_id = next((tid for tid, r in roles.items() if r == "traitor" and tid in alive), None)
+    if not traitor_id:
+        return None
+
+    target_id = night_actions.get("traitor_target")
+    if not target_id:
+        return None
+
+    target_id = int(target_id)
+
+    if target_id not in alive:
+        return None
+
+    if target_id == int(traitor_id):
+        return None
+
+    # swap
+    traitor_role = roles.get(int(traitor_id))
+    target_role = roles.get(int(target_id))
+
+    if not target_role:
+        return None
+
+    roles[int(traitor_id)] = target_role
+    roles[int(target_id)] = traitor_role
+
+    game["roles"] = roles
+    return int(traitor_id), int(target_id), target_role
+
+
+
 
 
 async def apply_night_actions(game_id: int):
@@ -1087,17 +1205,78 @@ async def apply_night_actions(game_id: int):
                 text=t['mafia_target'].format(mafia_target=mafia_target_name)
             )
 
-  
+    killer_id = get_alive_role_id(game, "killer")
+    if killer_id:
+        for target_id in night_actions.get("killer_target", []):
+            add_intent(target_id, "killer", priority=1)
 
     com_id = get_alive_role_id(game, "com")
     if com_id:
         add_intent(night_actions.get("com_shoot_target"), "com", priority=1)
-  
+    drunk_id = get_alive_role_id(game, "drunk")
+    if drunk_id:
+        add_intent(night_actions.get("drunk_target"), "drunk", priority=4)
+        if random.random() < 0.4:
+                add_intent(drunk_id, "💊 O'zi", priority=4)
+
+    snowball_id = get_alive_role_id(game, "snowball")
+    if snowball_id:
+        add_intent(night_actions.get("snowball_target"), "snowball", priority=1)
+
+    arrow_id = get_alive_role_id(game, "arrow")
+    if arrow_id:
+        add_intent(night_actions.get("arrow_target"), "arrow", priority=1)
+
+    snyper_id = get_alive_role_id(game, "snyper")
+    if snyper_id:
+        add_intent(night_actions.get("snyper_target"), "snyper", priority=99)
+    professor_id = get_alive_role_id(game, "professor")
+    if professor_id:
+        professor_data = night_actions.get("professor", {})
+        prof_target = professor_data.get("target_id")
+        prof_chosen = professor_data.get("chosen")
+        if prof_target and prof_chosen == "die":
+            add_intent(prof_target, "professor", priority=1)
+
+    pirate_id = get_alive_role_id(game, "pirate")
+    pirate_data = night_actions.get("pirate", {})
+    if pirate_id and pirate_data and pirate_data.get("result") in ("no", "no_money"):
+        add_intent(pirate_data.get("target_id"), "pirate", priority=1)
+
+    lab_id = get_alive_role_id(game, "lab")
+    if lab_id:
+        lab_target = night_actions.get("lab_target")
+        if lab_target and is_alive(game, lab_target):
+            if roles.get(int(lab_target)) in MAFIA_ROLES:
+                protected[int(lab_target)] = "lab"
+            else:
+                add_intent(lab_target, "lab", priority=2)
+
+    kaldun_id = get_alive_role_id(game, "kaldun")
+    if kaldun_id:
+        kaldun_target = night_actions.get("kaldun_target")
+        if kaldun_target and is_alive(game, kaldun_target):
+            if roles.get(int(kaldun_target)) in PEACE_ROLES:
+                protected[int(kaldun_target)] = "kaldun"
+            else:
+                add_intent(kaldun_target, "kaldun", priority=2)
+
+    trap_id = get_alive_role_id(game, "trap")
+    if trap_id:
+        trap_house = night_actions.get("trap_house")
+        if trap_house:
+            trap_house = int(trap_house)
+            visitors = [v for (v, h) in game.get("visits", {}).get("log", []) if int(h) == trap_house]
+            if visitors:
+                first = int(visitors[0])
+                if roles.get(first) != "trap":
+                    add_intent(first, "trap", priority=10)
      
 
     dead_tonight = []
     saved_tonight = []
     lover_target = night_actions.get("lover_block_target")
+    hero_data = game.get("hero", {})
     for target_id, intents in kill_intents.items():
         if target_id is None:
             continue
@@ -1110,6 +1289,34 @@ async def apply_night_actions(game_id: int):
             continue
 
         target_user = alive_users_map.get(int(target_id))
+        hero_used = game.setdefault("hero_used", {})
+        if target_user and target_user.get("hero", False):
+            if not hero_used.get(target_id) and target_id in hero_data.get("self_protect", set()):
+                hero_used[target_id] = True
+                t= get_lang_text(int(target_id))
+                tu = get_lang_text(int(chat_id))
+                await send_safe_message(
+                    chat_id=int(target_id),
+                    text=t['hero_half_protect'],
+                    parse_mode="HTML"
+                )
+                
+                target_name = uname(target_id)
+                await send_safe_message(
+                    chat_id=chat_id,
+                    text=tu['hero_saved'].format(target_name=target_name,target_id=target_id),
+                    parse_mode="HTML"
+                )
+                continue
+        if role == "ghost" and not killer_by == "snyper":
+            continue
+        if role == "arrow" and  killer_by == "com":
+            continue
+            
+        if killer_by == "snyper":
+            kill(game, target_id)
+            dead_tonight.append((target_id, killer_by))
+            continue
 
         if target_id in protected:
             saved_tonight.append((target_id, protected[target_id], killer_by))
@@ -1204,9 +1411,10 @@ async def apply_night_actions(game_id: int):
             
     
     com_id = get_alive_role_id(game, "com")
+    serg_id = get_alive_role_id(game, "serg")
     com_check_target = night_actions.get("com_check_target")
 
-    if com_id and com_check_target and is_alive(game, com_id):
+    if com_id and com_check_target:
         target_user = alive_users_map.get(int(com_check_target))
         target_name = target_user.get("first_name") if target_user else str(com_check_target)
 
@@ -1229,10 +1437,59 @@ async def apply_night_actions(game_id: int):
                 text=text,
                 parse_mode="HTML"
             )
+            if serg_id and is_alive(game, serg_id):
+                await send_safe_message(
+                    chat_id=int(serg_id),
+                    text=text,
+                    parse_mode="HTML"
+                )
         except Exception:
             pass
         
+    spy_id = get_alive_role_id(game, "spy")
+    spy_target = night_actions.get("spy_target")
 
+    if spy_id and spy_target and is_alive(game, spy_id):
+        target_user = alive_users_map.get(int(spy_target))
+        target_name = target_user.get("first_name") if target_user else str(spy_target)
+
+        real_role_key = roles.get(int(spy_target))
+        real_role_text = get_role_labels_lang(int(spy_target)).get(real_role_key, "Unknown")
+
+        try:
+            await send_safe_message(
+                chat_id=int(spy_target),
+                text=t["someone_interested"]
+            )
+            
+            mafia_members = get_mafia_members(game_id)
+            for member_id in mafia_members:
+                t = get_lang_text(int(member_id))
+                if member_id == int(spy_id):
+                    continue
+                await send_safe_message(
+                    chat_id=int(member_id),
+                    text=t['spy_notify'].format(
+                        target_name=target_name,
+                        real_role_text=real_role_text,
+                        spy_target=spy_target
+                    ),
+                    parse_mode="HTML"
+                )
+            t= get_lang_text(int(spy_id))
+            await send_safe_message(
+                chat_id=int(spy_id),
+                text=t['spy_found'].format(
+                        target_name=target_name,
+                        real_role_text=real_role_text,
+                        spy_target=spy_target
+                ),
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+
+    
 
 
     
@@ -1279,7 +1536,28 @@ async def apply_night_actions(game_id: int):
             )
         except Exception:
             pass
-  
+    swap_result = traitor_swap_roles(game)
+    if swap_result:
+        traitor_id, target_id, new_role = swap_result
+
+        try:
+            new_name = get_role_labels_lang(int(traitor_id)).get(new_role, new_role)
+            await send_safe_message(
+                chat_id=traitor_id,
+                text=t['traitor_changed'].format(new_name=new_name)
+            )
+        except Exception:
+            pass
+
+        try:
+            t= get_lang_text(int(target_id))
+            await send_safe_message(
+                chat_id=target_id,
+                text=t['traitor_swapped']
+            )
+        except Exception:
+            pass
+
                 
 def get_game_by_chat_id(chat_id: int):
     chat_id = int(chat_id)
@@ -1295,6 +1573,7 @@ def get_alive_teams(game):
 
     mafia = []
     peace = []
+    solo = []
 
     for tg_id in alive:
         r = roles.get(tg_id)
@@ -1302,8 +1581,10 @@ def get_alive_teams(game):
             mafia.append(tg_id)
         elif r in PEACE_ROLES:
             peace.append(tg_id)
+        elif r in SOLO_ROLES:
+            solo.append(tg_id)
 
-    return mafia, peace
+    return mafia, peace, solo
 def check_game_over(game_id: int) -> str | None:
     game = games_state.get(game_id)
     if not game:
@@ -1313,26 +1594,34 @@ def check_game_over(game_id: int) -> str | None:
     if not alive:
         return "draw"
 
-    mafia_ids, peace_ids = get_alive_teams(game)
+    mafia_ids, peace_ids, solo_ids = get_alive_teams(game)
 
     mafia = len(mafia_ids)
     peace = len(peace_ids)
-    alive_count = mafia + peace
+    solo  = len(solo_ids)
+    alive_count = mafia + peace + solo
 
     # =========================
-    # 🔥 1.  MAXSUS HOLATLAR
+    # 🔥 1. SOLO MAXSUS HOLATLAR
     # =========================
 
+    # Faqat solo qolsa
+    if solo > 0 and mafia == 0 and peace == 0:
+        return "solo"
 
-    # 1 mafia + 1 =
-    if alive_count == 2 and mafia == 1 :
+    # 1 peace + 1 solo
+    if alive_count == 2 and peace == 1 and solo == 1:
+        return "solo"
+
+    # 1 mafia + 1 solo
+    if alive_count == 2 and mafia == 1 and solo == 1:
         return "mafia"
 
     # =========================
     # 🔥 2. MAFIA PARITY QOIDASI (ENG MUHIM)
     # =========================
     # Mafia soni tinchlardan kam emas bo‘lsa — mafia yutadi
-    if mafia > 0 and mafia >= peace :
+    if mafia > 0 and mafia >= peace and solo == 0:
         return "mafia"
 
     # 3 kishidan kam va mafia bor
@@ -1342,7 +1631,7 @@ def check_game_over(game_id: int) -> str | None:
     # =========================
     # 🔥 3. TINCHLAR YUTISHI
     # =========================
-    if peace > 0 and mafia == 0 :
+    if peace > 0 and mafia == 0 and solo == 0:
         return "peace"
 
     # =========================
@@ -1416,10 +1705,10 @@ async def stop_game_if_needed(game_id: int):
             last_wishes.pop(u.telegram_id, None)
 
             reward = (
-                110 if is_winner and is_group_follower else
-                55 if is_winner else
-                50 if is_group_follower else
-                25
+                40 if is_winner and is_group_follower else
+                20 if is_winner else
+                20 if is_group_follower else
+                10
             )
 
             u.coin += reward
@@ -1471,7 +1760,7 @@ async def stop_game_if_needed(game_id: int):
                 chat_id=user_id,
                 text=text,
                 parse_mode="HTML",
-                reply_markup=cart_inline_btn(user_id)
+                reply_markup= cart_inline_btn(user_id)
             )
         except:
             pass
@@ -1511,6 +1800,7 @@ async def build_final_game_text(game_id: int, winner_key: str) -> str:
     winner_team_roles = (
         PEACE_ROLES if winner_key == "peace"
         else MAFIA_ROLES_LAB if winner_key == "mafia"
+        else SOLO_ROLES if winner_key == "solo"
         else set()
     )
 
@@ -1647,11 +1937,20 @@ def get_lang(tg_id: int) -> str:
     if lang:
         return lang
     
-    
-    user = User.objects.filter(telegram_id=tg_id).only("lang").first()
-    if user:
-        USER_LANG_CACHE[tg_id] = user.lang
-        return user.lang
+    if tg_id > 0:
+        user_type ="user"
+    else:
+        user_type ="group"
+    if user_type == "group":
+        group = GroupTrials.objects.filter(group_id=tg_id).only("lang").first()
+        if group:
+            USER_LANG_CACHE[tg_id] = group.lang
+            return group.lang
+    else: 
+        user = User.objects.filter(telegram_id=tg_id).only("lang").first()
+        if user:
+            USER_LANG_CACHE[tg_id] = user.lang
+            return user.lang
 
     return "uz"
 

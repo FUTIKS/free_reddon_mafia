@@ -3,21 +3,23 @@ from aiogram import F
 from dispatcher import dp,bot
 from datetime import timedelta
 from django.db.models import Sum  
+from aiogram.types import Message
 from django.utils import timezone
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.filters.command import Command
-from aiogram.types import Message,LabeledPrice
+from mafia_bot.state import CredentialsState
+from django.contrib.auth.hashers import check_password
 from mafia_bot.handlers.game_handler import run_game_in_background
-from mafia_bot.models import Game, GroupTrials, MostActiveUser,User,BotMessages,GameSettings,UserRole
+from mafia_bot.models import Game, GroupTrials, MostActiveUser,User,BotMessages,GameSettings, UserRole,BotCredentials,LoginAttempts
 from mafia_bot.utils import last_wishes,team_chat_sessions,game_tasks,group_users,games_state,notify_users,active_role_used,writing_allowed_groups,chat_id_game_id
 from mafia_bot.handlers.main_functions import (MAFIA_ROLES, find_game,create_main_messages, get_lang_text,
-                                               kill, notify_new_don, get_game_lock,
+                                               kill, notify_new_don, promote_new_com_if_needed,get_game_lock,
                                                promote_new_don_if_needed,  shuffle_roles ,check_bot_rights,
                                                role_label,is_group_admin,mute_user,has_link,
                                                get_description_lang,get_role_labels_lang,
-                                               send_safe_message)
-from mafia_bot.buttons.inline import ( 
+                                               send_safe_message,notify_new_com)
+from mafia_bot.buttons.inline import (admin_inline_btn, back_btn, 
                                        join_game_btn, 
                                       start_inline_btn, go_to_bot_inline_btn, cart_inline_btn, 
                                       language_keyboard)
@@ -45,16 +47,13 @@ async def start(message: Message) -> None:
             return
         
             
-            
         game = Game.objects.filter(uuid=args,is_active_game=True).first()
         if not game:
             await message.reply(text=t['game_not_active'])
             return
         elif game and game.is_started:
                 return
-        # if is_player_in_game(tg_id):
-        #     await message.reply(text=t['already_in_another_game'])
-        #     return
+        
         
         result = find_game(game.id,tg_id,game.chat_id,user)
         if result.get("message") == "already_in":
@@ -77,6 +76,9 @@ async def start(message: Message) -> None:
             
     
     if message.chat.type == "private":
+        if user.role == "admin":
+            await message.answer("Salom\n\n👮 Siz Mafia botning admin panelidasiz.",reply_markup=admin_inline_btn())
+            return
        
         first_name=message.from_user.first_name
         await message.answer(
@@ -113,6 +115,8 @@ async def start(message: Message) -> None:
 async def profile_command(message: Message):
     if message.chat.type != "private":
         await message.delete()
+        tu = get_lang_text(message.chat.id)
+        await message.answer(tu['paid_version'])
         return
     t = get_lang_text(message.from_user.id)
     user = User.objects.filter(telegram_id=message.from_user.id).first()
@@ -144,7 +148,9 @@ async def profile_command(message: Message):
             coin=user.coin,
             stones=user.stones,
             protection=user.protection,
+            hang_protect=0,
             docs=user.docs,
+            geroy_protect=0,
             wins=total_wins,
             all_played=total_played,
             text=text
@@ -152,6 +158,45 @@ async def profile_command(message: Message):
         parse_mode="HTML",reply_markup=cart_inline_btn(message.from_user.id)
     )
     
+    
+
+@dp.message(Command("help"), StateFilter(None))
+async def help_command(message: Message) -> None:
+    await message.delete()
+    await message.answer("Admin.\n\n@RedDon_Mafia")
+    
+
+@dp.message(Command("money"), F.chat.type.in_({"group", "supergroup"}), StateFilter(None))
+async def money_command(message: Message) -> None:
+    await message.delete()
+    tu = get_lang_text(message.chat.id)
+    await message.answer(tu['paid_version'])
+    return
+
+@dp.message(Command("gsend"), F.chat.type.in_({"group", "supergroup"}), StateFilter(None))
+async def gsend_command(message: Message) -> None:
+    await message.delete()
+    tu = get_lang_text(message.chat.id)
+    await message.answer(tu['paid_version'])
+    return
+   
+    
+
+
+@dp.message(Command("send"), F.chat.type.in_({"group", "supergroup"}), StateFilter(None))
+async def money_command(message: Message) -> None:
+    await message.delete()
+    tu = get_lang_text(message.chat.id)
+    await message.answer(tu['paid_version'])
+    return
+        
+        
+@dp.message(Command("change"), F.chat.type.in_({"group", "supergroup"}), StateFilter(None))
+async def change_command(message: Message) -> None:
+    await message.delete()
+    tu = get_lang_text(message.chat.id)
+    await message.answer(tu['paid_version'])
+    return    
     
 
 @dp.message(Command(commands=["leave", "quit"]),F.chat.type.in_({"group", "supergroup"}), StateFilter(None))
@@ -182,12 +227,28 @@ async def leave(message: Message) -> None:
                 chat_id=chat_id,
                 text=t['don_become']
                     )
-   
+    elif role == "com":
+        new_com_id = promote_new_com_if_needed(game)
+        if new_com_id:
+            await notify_new_com(  new_com_id)
+            await send_safe_message(
+                        chat_id=chat_id,
+                        text=t['com_become']
+                    )
     role_label_text = role_label(role,chat_id)
     await send_safe_message(chat_id=chat_id,text=t['left_game'].format(telegram_id=tg_id,first_name=user.first_name,role_label_text=role_label_text))
     
     
 
+
+@dp.message(Command("admin"), StateFilter(None))
+async def admin_command(message: Message) -> None:
+    if message.chat.type != "private":
+        await message.delete()
+        return
+    user = User.objects.filter(telegram_id=message.from_user.id).first()
+    if user and user.role == 'admin':
+        await message.answer("👮 Siz Mafia botning admin panelidasiz.",reply_markup=admin_inline_btn())
 
 @dp.message(Command("language"), StateFilter(None))
 async def language(message: Message):
@@ -528,22 +589,9 @@ async def stop_command(message: Message) -> None:
 @dp.message(Command("next"), StateFilter(None))
 async def next_command(message: Message) -> None:
     await message.delete()
-
-    if message.chat.type not in ("group", "supergroup"):
-        return
-
-    chat_id = message.chat.id
-    user_id = message.from_user.id
-
-    if chat_id not in notify_users:
-        notify_users[chat_id] = set()
-
-    notify_users[chat_id].add(user_id)
-
-    await send_safe_message(
-        chat_id=user_id,
-        text="✅ Siz keyingi o'yin haqida eslatma olasiz."
-    )
+    tu = get_lang_text(message.chat.id)
+    await message.answer(tu['paid_version'])
+    return
 
 
 
@@ -633,14 +681,18 @@ async def send_top(message: Message, days: int, title: str):
 
 @dp.message(Command("top"), StateFilter(None))
 async def top_command(message: Message):
-    t = get_lang_text(message.chat.id)
-    await send_top(message, days=1, title=t["top_daily"])
+    await message.delete()
+    tu = get_lang_text(message.chat.id)
+    await message.answer(tu['paid_version'])
+    return
 
 
 @dp.message(Command("top7"), StateFilter(None))
 async def top7_command(message: Message):
-    t = get_lang_text(message.chat.id)
-    await send_top(message, days=7, title=t["top_weekly"])
+    await message.delete()
+    tu = get_lang_text(message.chat.id)
+    await message.answer(tu['paid_version'])
+    return
 
 
 @dp.message(Command("top30"), StateFilter(None))
@@ -778,7 +830,15 @@ async def delete_not_alive_messages(message: Message):
 @dp.message(F.chat.type.in_({"private"}),StateFilter(None))
 async def private_router(message: Message,state: FSMContext) -> None:
     tg_id = int(message.from_user.id)
-   
+    if message.text == "admin_parol":
+        await message.answer("Iltimos, login va parolni bitta qatorda yuboring:\n\nlogin password",reply_markup=back_btn(message.from_user.id))
+        await state.set_state(CredentialsState.login)
+        return
+    elif message.text == "logout_admin":
+       
+        await admin_logout(message)
+        return
+        
     if not message.text:
         return
 
@@ -876,6 +936,83 @@ async def private_router(message: Message,state: FSMContext) -> None:
             pass
 
 
+@dp.message(StateFilter(CredentialsState.login))
+async def process_admin_password(message: Message, state: FSMContext) -> None:
+    text = (message.text or "").strip()
+
+    parts = text.split(maxsplit=1)
+    if len(parts) != 2:
+        await message.answer("Login va parolni bitta qatorda yuboring:\n\nlogin password",reply_markup=back_btn(message.from_user.id))
+        return
+
+    login, password = parts[0], parts[1]
+
+    user = User.objects.filter(telegram_id=message.from_user.id).first()
+    if not user:
+        await message.answer("Siz botda ro‘yxatdan o‘tmagansiz ❌")
+        await state.clear()
+        return
+
+    attempts_obj, _ = LoginAttempts.objects.get_or_create(admin=user)
+
+    if attempts_obj.permanent_ban:
+        await message.answer("Siz adminkaga kirishdan bloklangansiz 🚫")
+        await state.clear()
+        return
+
+    if attempts_obj.ban_until and attempts_obj.ban_until > timezone.now():
+        left = attempts_obj.ban_until - timezone.now()
+        hours = int(left.total_seconds() // 3600)
+        await message.answer(f"Siz adminkaga kirishdan vaqtincha bloklangansiz 🚫\nQolgan vaqt: {hours} soat")
+        await state.clear()
+        return
+
+    admin = BotCredentials.objects.filter(login=login).first()
+    if not admin:
+        await message.answer("Login noto‘g‘ri ❌")
+        await state.clear()
+        return
+
+    if not check_password(password, admin.password):
+        # Agar oldin 1 kun ban olgan bo‘lsa (demak ikkinchi xato) => umrbod ban
+        if attempts_obj.ban_until is not None:
+            attempts_obj.ban_forever()
+            await message.answer("Parol noto‘g‘ri ❌\nSiz umrbod bloklandingiz 🚫")
+            await state.clear()
+            return
+
+        # Birinchi xato => 1 kun ban
+        attempts_obj.ban_for_1_day()
+        await message.answer("Parol noto‘g‘ri ❌\nSiz 1 kunga bloklandingiz 🚫")
+        await state.clear()
+        return
+
+    # login success => banlar va attempts reset
+    attempts_obj.attempts = 0
+    attempts_obj.last_attempt = timezone.now()
+    attempts_obj.ban_until = None
+    attempts_obj.permanent_ban = False
+    attempts_obj.save()
+
+    if user.role != 'admin':
+        user.role = 'admin'
+        user.save(update_fields=["role"])
+
+    await message.answer("Muvaffaqiyatli kirdingiz ✅", reply_markup=admin_inline_btn())
+    await state.clear()
+    
+
+    
+
+async def admin_logout(message: Message) -> None:
+    user = User.objects.filter(telegram_id=message.from_user.id).first()
+    if user and user.role != 'admin':
+        await message.answer(text="Siz admin emassiz!",reply_markup=start_inline_btn(message.from_user.id))
+        return
+    if user:
+        user.role = 'user'
+        user.save()
+    await message.answer(text="Siz endi admin emassiz!",reply_markup=start_inline_btn(message.from_user.id))
     
 
 
@@ -919,20 +1056,3 @@ async def refresh_registration_main_message(game_id: int, chat_id: int):
 
     except asyncio.CancelledError:
         return
-
-
-async def olmos_star_handler(message,olmos_amount: int, star_amount: int,chat_id: int):
-
-    prices = [
-        LabeledPrice(label=f"💎 {olmos_amount} sotib olish", amount=star_amount)
-    ]
-    t = get_lang_text(chat_id)
-    await bot.send_invoice(
-        chat_id=message.chat.id,
-        title=t['buy_stone_group'],
-        description=t['buy_stone_group_desc'],
-        payload=f"olmos_{olmos_amount}_{star_amount}_{chat_id}",
-        currency="XTR",
-        prices=prices
-    )
-    

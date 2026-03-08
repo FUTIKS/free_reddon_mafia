@@ -9,8 +9,8 @@ from aiogram.types import FSInputFile
 from aiogram.exceptions import TelegramRetryAfter
 from mafia_bot.utils import game_tasks,writing_allowed_groups
 from mafia_bot.buttons.inline import confirm_hang_inline_btn, go_to_bot_inline_btn,action_inline_btn
-from mafia_bot.handlers.main_functions import (can_hang, games_state, get_most_voted_id,night_reset,day_reset,  notify_new_don, prepare_confirm_pending,
-                                               prepare_hang_pending, prepare_night_pending,  promote_new_don_if_needed, punish_afk_night_players,send_night_actions_to_all,send_safe_message,
+from mafia_bot.handlers.main_functions import (can_hang, games_state, get_most_voted_id,night_reset,day_reset, notify_new_com, notify_new_don, prepare_confirm_pending,
+                                               prepare_hang_pending, prepare_night_pending, promote_new_com_if_needed, promote_new_don_if_needed, punish_afk_night_players,send_night_actions_to_all,send_safe_message,
                                                apply_night_actions, stop_game_if_needed,PEACE_ROLES,MAFIA_ROLES_LAB,get_lang_text,get_role_labels_lang)
 
 
@@ -219,8 +219,6 @@ async def start_game(game_id):
 
             peace_labels = []
             mafia_labels = []
-            solo_labels = []
-
             for idx, tg_id in enumerate(all_players, 1):
                 if tg_id not in alive_after_night:
                     continue
@@ -405,21 +403,7 @@ async def start_game(game_id):
                     parse_mode="HTML"
                 )
                 continue
-            if voted_user.get('hang_protect',0) >0:
-                voted_user['hang_protect'] -=1
-                user = User.objects.filter(telegram_id=voted_user.get('tg_id')).first()
-                if user:
-                    user.hang_protect -=1
-                    user.save(update_fields=["hang_protect"])
-                await send_safe_message(
-                    chat_id=game.chat_id,
-                    text=t['hang_protect'].format(yes=yes, no=no,
-                        first_name=voted_user_first_name,
-                        tg_id=voted_user_tg_id
-                    ),
-                    parse_mode="HTML"
-                )
-                continue
+            
             
 
             await send_safe_message(
@@ -455,6 +439,14 @@ async def start_game(game_id):
                     await send_safe_message(
                         chat_id=game.chat_id,
                         text=t['don_killed']
+                    )
+            if roles_map.get(voted_user.get('tg_id')) == "com":
+                new_com_id = promote_new_com_if_needed(games_state[game_id])
+                if new_com_id:
+                    await notify_new_com( new_com_id)
+                    await send_safe_message(
+                        chat_id=game.chat_id,
+                        text=t['com_killed']
                     )
                 ended = await stop_game_if_needed(game_id)
                 if ended:

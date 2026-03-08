@@ -12,9 +12,9 @@ from .models import (
 class UserAdmin(admin.ModelAdmin):
     list_display = (
         "id", "telegram_id", "username", "first_name", "role", "lang",
-        "coin", "stones", "is_vip","is_hero",
+        "coin", "stones", 
     )
-    list_filter = ("role", "lang", "is_vip", "is_hero",)
+    list_filter = ("role", "lang",  )
     search_fields = ("telegram_id", "username", "first_name")
     ordering = ("-id",)
     readonly_fields = ("telegram_id",)
@@ -22,16 +22,16 @@ class UserAdmin(admin.ModelAdmin):
     fieldsets = (
         ("Asosiy", {"fields": ("telegram_id", "username", "first_name", "lang", "role")}),
         ("Balans", {"fields": ("coin", "stones", "premium_stones") if hasattr(User, "premium_stones") else ("coin", "stones")}),
-        ("Status", {"fields": ("is_vip", "active_role")}),
-        ("Qo‘shimcha", {"fields": ("protection", "docs","hang_protect","is_protected","is_hang_protected","is_doc","is_geroy_protected")}),
+        ("Status", {"fields": ( "active_role",)}),
+        ("Qo‘shimcha", {"fields": ("protection", "docs","is_doc")}),
     )
 
     def get_fieldsets(self, request, obj=None):
         base = [
             ("Asosiy", {"fields": ("telegram_id", "username", "first_name", "lang", "role")}),
             ("Balans", {"fields": ("coin", "stones")}),
-            ("Status", {"fields": ("is_vip", "is_hero", "active_role")}),
-             ("Qo‘shimcha", {"fields": ("protection", "docs","hang_protect","is_protected","is_hang_protected","is_doc","is_geroy_protected")}),
+            ("Status", {"fields": (  "active_role",)}),
+             ("Qo‘shimcha", {"fields": ("protection", "docs","is_doc")}),
         ]
         return base
 
