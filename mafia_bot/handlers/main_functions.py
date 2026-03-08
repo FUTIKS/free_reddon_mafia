@@ -804,8 +804,7 @@ def shuffle_roles(game_id) -> bool:
 
     for tg_id in players:
         user = User.objects.filter(telegram_id=tg_id).first()
-        if not user or not user.is_active_role_use:
-            continue
+        
 
         user_roles = UserRole.objects.filter(user_id=user.id, quantity__gt=0)
         if not user_roles.exists():
