@@ -334,7 +334,6 @@ def cart_inline_btn(tg_id):
             InlineKeyboardButton(text=t["buy_stone"], callback_data="money_stone"),
         ],
         [InlineKeyboardButton(text=t["hero"], callback_data="geroy_no")],
-        [InlineKeyboardButton(text=t["premium"], callback_data="groups")],
         [InlineKeyboardButton(text=t["cases"], callback_data="cases")],
     
     ]
