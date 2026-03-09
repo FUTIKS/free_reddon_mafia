@@ -2625,7 +2625,15 @@ def set_user_lang(callback, lang: str):
     tg_id = callback.from_user.id
     username = callback.from_user.username
     first_name = callback.from_user.first_name
-
+    if callback.message.chat.type != "private":
+        tg_id = callback.message.chat.id
+        group = GroupTrials.objects.filter(group_id=tg_id).first()
+        if group:
+            group.lang = lang
+            group.save()
+            USER_LANG_CACHE[tg_id] = lang
+        return
+    
     User.objects.update_or_create(
         telegram_id=tg_id,
         defaults={"lang": lang,
@@ -2635,7 +2643,17 @@ def set_user_lang(callback, lang: str):
     USER_LANG_CACHE[tg_id] = lang
 
 
-
+@dp.callback_query(F.data.startswith("lange_"))
+async def lange_group_callback(callback: CallbackQuery,state: FSMContext) -> None:
+    await callback.answer()
+    admin_id = int(callback.data.split("_")[1])
+    if callback.from_user.id != admin_id:
+        return
+    await callback.message.edit_text(
+        text="Language / Tilni tanlang / Выберите язык / Dil seçin / Тілді таңдаңыз:",
+        reply_markup=language_keyboard()
+    )
+    
 
 @dp.callback_query(F.data.startswith("lang_"))
 async def set_language_callback(callback: CallbackQuery):
@@ -2653,7 +2671,7 @@ async def set_language_callback(callback: CallbackQuery):
     if callback.message.chat.type == "private":
         await callback.message.edit_text(texts.get(lang, texts["uz"]),reply_markup=start_inline_btn(callback.from_user.id))
         return
-    await callback.message.edit_text(texts.get(lang, texts["uz"]),reply_markup=group_profile_inline_btn(True,callback.message.chat.id,callback.from_user.id))
+    await callback.message.edit_text(texts.get(lang, texts["uz"]),reply_markup=group_profile_inline_btn(callback.message.chat.id,callback.from_user.id))
     await callback.answer()
 
 

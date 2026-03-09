@@ -11,11 +11,11 @@ from django.db import transaction
 from aiogram.types import Message
 from django.db.models import F as DF
 from aiogram.enums import ChatMemberStatus
+from aiogram.types import ChatPermissions,ChatMemberAdministrator, ChatMemberOwner
 from core.constants import uz_texts,ROLES_BY_COUNT,ru_texts,en_texts,tr_texts,qz_texts
 from mafia_bot.models import Game, GameSettings,User,MostActiveUser, UserRole, GroupTrials
-from aiogram.types import ChatPermissions,ChatMemberAdministrator, ChatMemberOwner
-from mafia_bot.utils import games_state, last_wishes,game_tasks, active_role_used,writing_allowed_groups,USER_LANG_CACHE,game_locks,chat_id_game_id
 from mafia_bot.buttons.inline import cart_inline_btn, doc_btn, com_inline_btn, don_inline_btn, mafia_inline_btn, action_inline_btn
+from mafia_bot.utils import games_state, last_wishes,game_tasks, active_role_used,writing_allowed_groups,USER_LANG_CACHE,game_locks,chat_id_game_id
 
 lock = Lock()
 LANG_TEXTS = {

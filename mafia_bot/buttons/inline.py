@@ -12,73 +12,42 @@ def remove_prefix(text):
     return text.lstrip('@')
 
 # Cart inline button
-def group_profile_inline_btn(has_stone, chat_id,tg_id):
+def group_profile_inline_btn( chat_id,tg_id):
     from mafia_bot.handlers.main_functions import get_lang
 
     lang = get_lang(chat_id)
     TEXTS = {
         "uz": {
-            "premium": "💎 Olmosni premiumga o'tkazish",
-            "buy_star": "⭐ evaziga 💎 sotib olish",
-            "card": "💳 Kartadan 💳 kartaga",
-            "manage": "🛠 O'yin boshqarish",
             "lang":"🌐 Tilni o'zgartirish",
             "close": "✖️ Yopish",
         },
         "ru": {
-            "premium": "💎 Перевести алмазы в премиум",
-            "buy_star": "⭐ Купить 💎 за звёзды",
-            "card": "💳 С карты на карту",
-            "manage": "🛠 Управление игрой",
+            
             "lang":"🌐 Изменить язык",
             "close": "✖️ Закрыть",
         },
         "en": {
-            "premium": "💎 Convert diamonds to premium",
-            "buy_star": "⭐ Buy 💎 with stars",
-            "card": "💳 Card to card transfer",
-            "manage": "🛠 Game management",
+           
             "lang":"🌐 Change language",
             "close": "✖️ Close",
         },
         "tr": {
-            "premium": "💎 Elmasları premiuma çevir",
-            "buy_star": "⭐ Yıldız ile 💎 satın al",
-            "card": "💳 Karttan karta",
-            "manage": "🛠 Oyun yönetimi",
+          
             "lang":"🌐 Dili değiştir",
             "close": "✖️ Kapat",
         },
         "qz": {
-            "premium": "💎 Алмастарды премиумға ауыстыру",
-            "buy_star": "⭐ Жұлдыздармен 💎 сатып алу",
-            "card": "💳 Карттан картаға",
-            "manage": "🛠 Ойын басқару",
+           
             "lang":"🌐 Тілді өзгерту",
             "close": "✖️ Жабу",
         }
     }
 
     t = TEXTS.get(lang, TEXTS["uz"])
-
-    keyboard4 = InlineKeyboardButton(
-        text=t["premium"],
-        url=f"https://t.me/{remove_prefix(config('BOT_USERNAME'))}?start=stone_{chat_id}_{tg_id}"
-    )
-    keyboard1 = InlineKeyboardButton(text=t["buy_star"], callback_data=f"star_group_{tg_id}")
-    keyboard2 = InlineKeyboardButton(text=t["card"], url="https://t.me/RedDon_Mafia")
-    keyboard3 = InlineKeyboardButton(
-        text=t["manage"],
-        url=f"https://t.me/{remove_prefix(config('BOT_USERNAME'))}?start=instance_{chat_id}_{tg_id}"
-    )
     keyboard_lang = InlineKeyboardButton(text=t["lang"], callback_data=f"lange_{tg_id}")
     keyboard5 = InlineKeyboardButton(text=t["close"], callback_data=f"close_{tg_id}")
 
     design = [
-        [keyboard4] if has_stone else [],
-        [keyboard1],
-        [keyboard2],
-        [keyboard3],
         [keyboard_lang],
         [keyboard5],
     ]

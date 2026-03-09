@@ -19,7 +19,7 @@ from mafia_bot.handlers.main_functions import (MAFIA_ROLES, find_game,create_mai
                                                role_label,is_group_admin,mute_user,has_link,
                                                get_description_lang,get_role_labels_lang,
                                                send_safe_message,notify_new_com)
-from mafia_bot.buttons.inline import (admin_inline_btn, back_btn, 
+from mafia_bot.buttons.inline import (admin_inline_btn, back_btn, group_profile_inline_btn, 
                                        join_game_btn, 
                                       start_inline_btn, go_to_bot_inline_btn, cart_inline_btn, 
                                       language_keyboard)
@@ -114,9 +114,14 @@ async def start(message: Message) -> None:
 @dp.message(Command("profile"), StateFilter(None))
 async def profile_command(message: Message):
     if message.chat.type != "private":
+        t = get_lang_text(message.chat.id)
         await message.delete()
-        tu = get_lang_text(message.chat.id)
-        await message.answer(tu['paid_version'])
+        is_admin = await is_group_admin(message.chat.id, message.from_user.id)
+        if not is_admin:
+            return
+        await message.answer(text=t['group_profile'],
+        reply_markup=group_profile_inline_btn( message.chat.id,message.from_user.id)
+        )
         return
     t = get_lang_text(message.from_user.id)
     user = User.objects.filter(telegram_id=message.from_user.id).first()
