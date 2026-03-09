@@ -4,7 +4,7 @@ import asyncio
 import traceback
 from dispatcher import bot
 from collections import Counter
-from mafia_bot.models import Game, User
+from mafia_bot.models import Game
 from aiogram.types import FSInputFile
 from aiogram.exceptions import TelegramRetryAfter
 from mafia_bot.utils import game_tasks,writing_allowed_groups

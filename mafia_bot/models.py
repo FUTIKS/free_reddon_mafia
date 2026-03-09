@@ -1,6 +1,6 @@
 import json
-from datetime import timedelta
 from django.db import models
+from datetime import timedelta
 from django.utils import timezone
 from core.models.basemodel import SafeBaseModel
 from core.constants import LANGUAGE_CHOICES,MONEY_FOR_STAR,STONE_FOR_STAR
@@ -233,3 +233,11 @@ class LoginAttempts(SafeBaseModel):
         self.ban_until = None
         self.last_attempt = timezone.now()
         self.save(update_fields=["permanent_ban", "ban_until", "last_attempt"])
+        
+        
+class LanguageGroups(SafeBaseModel):
+    group_name = models.CharField(max_length=255)
+    gorup_link = models.CharField(max_length=255)
+    
+    def __str__(self):
+        return f"LanguageGroup {self.group_name}"

@@ -2,7 +2,7 @@ from decouple import config
 from django.utils import timezone
 from mafia_bot.utils import games_state
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from mafia_bot.models import  PriceStones,  PremiumGroup
+from mafia_bot.models import  PriceStones,  PremiumGroup,LanguageGroups
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from core.constants import ROLE_PRICES_IN_MONEY,ROLE_PRICES_IN_STONES
 
@@ -64,7 +64,7 @@ def start_inline_btn(user_id):
             "roles_info": "ℹ️ Rollar haqida ma'lumot",
             "add_info": "☑️ Botni guruhga qo'shish haqida ma'lumot",
             "add_bot": "➕ Botni guruhga qo'shish",
-            "premium": "⭐ Premium guruhlar",
+            "premium": "🎲 Guruhga kirish",
             "profile": "👤 Profil",
             "roles": "🎭 Rollar",
         },
@@ -72,7 +72,7 @@ def start_inline_btn(user_id):
             "roles_info": "ℹ️ Информация о ролях",
             "add_info": "☑️ Как добавить бота в группу",
             "add_bot": "➕ Добавить бота в группу",
-            "premium": "⭐ Премиум группы",
+            "premium": "🎲 Войти в группу",
             "profile": "👤 Профиль",
             "roles": "🎭 Роли",
         },
@@ -80,7 +80,7 @@ def start_inline_btn(user_id):
             "roles_info": "ℹ️ Role information",
             "add_info": "☑️ How to add the bot to a group",
             "add_bot": "➕ Add bot to group",
-            "premium": "⭐ Premium groups",
+            "premium": "🎲 Join group",
             "profile": "👤 Profile",
             "roles": "🎭 Roles",
         },
@@ -88,7 +88,7 @@ def start_inline_btn(user_id):
             "roles_info": "ℹ️ Roller hakkında bilgi",
             "add_info": "☑️ Botu gruba ekleme hakkında bilgi",
             "add_bot": "➕ Botu gruba ekle",
-            "premium": "⭐ Premium gruplar",
+            "premium": "🎲 Gruplara katıl",
             "profile": "👤 Profil",
             "roles": "🎭 Roller",
         },
@@ -96,7 +96,7 @@ def start_inline_btn(user_id):
             "roles_info": "ℹ️ Ролдер туралы ақпарат",
             "add_info": "☑️ Ботты топқа қосу туралы ақпарат",
             "add_bot": "➕ Ботты топқа қосу",
-            "premium": "⭐ Премиум топтар",
+            "premium": "🎲 Топқа қосылу",
             "profile": "👤 Профиль",
             "roles": "🎭 Ролдер",
         },
@@ -133,7 +133,7 @@ def start_inline_btn(user_id):
 
 def admin_inline_btn():
     keyboard1 = InlineKeyboardButton(text=" 💬 Guruhlar obunasi", callback_data="trial")
-    keyboard2 = InlineKeyboardButton(text=" ⭐ Premium guruhlar", callback_data="premium_group")
+    keyboard2 = InlineKeyboardButton(text=" 🎲 Guruh qo'shish", callback_data="premium_group")
     keyboard3 = InlineKeyboardButton(text=" 👥 Foydalanuvchi bilan aloqa", callback_data="user_talk")
     keyboard4 = InlineKeyboardButton(text=" 📢 Botga habar jo'natish", callback_data="broadcast_message")
     keyboard5 = InlineKeyboardButton(text=" 📊 Statistika", callback_data="statistics")
@@ -817,29 +817,21 @@ def hang_inline_btn(players, own_id, game_id, chat_id,day=None):
 
 def groups_inline_btn():
     builder = InlineKeyboardBuilder()
-    premium_groups = PremiumGroup.objects.all().order_by("-stones_for")
+    premium_groups = LanguageGroups.objects.all().order_by("-created_datetime")
     for group in premium_groups:
-        if group.link is None or group.name is None:
-            continue
-        if group.ends_date and group.ends_date < timezone.now():
-            group.delete()
-            continue
-        if "@"  in group.link:
-            url = f"https://t.me/{remove_prefix(group.link)}"
-        elif "http" in group.link or "https" in group.link:
-            url = group.link
-        button = InlineKeyboardButton(
-            text=f"{group.name} - {group.stones_for} 💎",
-            url=url
+        builder.add(
+            InlineKeyboardButton(
+                text=group.group_name,
+                url=group.gorup_link
+            )
         )
-        builder.add(button)
     builder.add(
         InlineKeyboardButton(
             text="⬅️ Orqaga",
             callback_data="back_profile"
         )
     )
-    builder.adjust(1)
+    builder.adjust(2)
     return builder.as_markup()
 
 

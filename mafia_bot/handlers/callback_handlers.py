@@ -5,20 +5,20 @@ import datetime
 from aiogram import F
 from dispatcher import dp, bot
 from datetime import timedelta
+from django.db.models import Sum
 from django.utils import timezone
 from aiogram.filters import StateFilter
-from django.db.models import Sum
 from aiogram.fsm.context import FSMContext 
 from django.contrib.auth.hashers import make_password
+from mafia_bot.utils import games_state,USER_LANG_CACHE
 from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
 from aiogram.types import Message, LabeledPrice, PreCheckoutQuery,CallbackQuery
-from mafia_bot.utils import games_state,USER_LANG_CACHE
-from mafia_bot.models import Game, MoneySendHistory, User,PremiumGroup,MostActiveUser,GameSettings,GroupTrials,PriceStones, UserRole,BotCredentials, default_end_date
+from mafia_bot.models import Game, MoneySendHistory, User,LanguageGroups,MostActiveUser,GameSettings,GroupTrials,PriceStones, UserRole,BotCredentials, default_end_date
 from mafia_bot.state import AddGroupState, BeginInstanceState,SendMoneyState,ChangeStoneCostState,ChangeMoneyCostState,ExtendGroupState,QuestionState,Register,CredentialsState
 from mafia_bot.handlers.main_functions import (add_visit, get_mafia_members,get_first_name_from_players, kill, send_safe_message,get_description_lang,get_hero_level,
                                                mark_confirm_done, mark_hang_done,mark_night_action_done,get_week_range,get_month_range,role_label,get_lang_text,get_role_labels_lang,get_actions_lang)
 from mafia_bot.buttons.inline import (action_inline_btn,
-    admin_inline_btn, answer_admin, back_btn, cart_inline_btn, change_money_cost, change_stones_cost, com_inline_btn, end_talk_keyboard,    group_profile_inline_btn,
+    admin_inline_btn, answer_admin, back_btn, cart_inline_btn, change_money_cost, change_stones_cost, com_inline_btn, end_talk_keyboard, group_profile_inline_btn,
     groupes_keyboard,  history_groupes_keyboard, language_keyboard, language_keyboard,  pay_for_money_inline_btn, pay_using_stars_inline_btn, role_shop_inline_keyboard,
     shop_inline_btn, start_inline_btn, roles_inline_btn, com_inline_action_btn,
     confirm_hang_inline_btn,groups_inline_btn,group_manage_btn,back_admin_btn,
@@ -1100,13 +1100,13 @@ async def premium_group_callback(callback: CallbackQuery):
     page = 1
     limit = 5
     offset = (page - 1) * limit
-    total = PremiumGroup.objects.count()
-    premium_groups = PremiumGroup.objects.all()[offset:offset + limit]
+    total = LanguageGroups.objects.count()
+    premium_groups = LanguageGroups.objects.all()[offset:offset + limit]
 
     total_pages = (total + limit - 1) // limit
 
     quiz_list = "\n\n".join([
-        f"{i + 1}. <a href='{group.link}'>{group.name}</a>\n"
+        f"{i + 1}. <a href='{group.gorup_link}'>{group.group_name}</a>\n"
         for i, group in enumerate(premium_groups)
     ])
 
@@ -1122,13 +1122,13 @@ async def quizzes_page_callback(callback_query):
     limit = 5
     offset = (page - 1) * limit
 
-    total = PremiumGroup.objects.count()
+    total = LanguageGroups.objects.count()
     total_pages = (total + limit - 1) // limit
 
-    groups = PremiumGroup.objects.all()[offset:offset + limit]
+    groups = LanguageGroups.objects.all()[offset:offset + limit]
 
     quiz_list = "\n\n".join([
-        f"{i + 1}. <a href='{group.link}'>{group.name}</a>\n"
+        f"{i + 1}. <a href='{group.gorup_link}'>{group.group_name}</a>\n"
         for i, group in enumerate(groups)
     ])
 
@@ -1141,12 +1141,12 @@ async def quizzes_page_callback(callback_query):
 async def quiz_select(callback):
     await callback.answer()
     group_id = callback.data.split(":")[1]
-    group = PremiumGroup.objects.get(id=group_id)
+    group = LanguageGroups.objects.get(id=group_id)
 
     await callback.message.edit_text(
-        text=f"🌟 Premium guruhni boshqarish\n\n"
-             f"Nomi: {group.name}\n"
-             f"Link: {group.link}",
+        text=f" guruhni boshqarish\n\n"
+             f"Nomi: {group.group_name}\n"
+             f"Link: {group.gorup_link}",
         reply_markup=group_manage_btn(group.id)
     )
 
@@ -1154,7 +1154,7 @@ async def quiz_select(callback):
 async def add_group(callback: CallbackQuery,state: FSMContext) -> None:
     await callback.answer()
     await callback.message.edit_text(
-        text="⭐ Premium guruh nomini kiriting:",
+        text="🎲 Guruh nomini va linkini kiriting:",
         reply_markup=back_admin_btn()
     )
     await state.set_state(AddGroupState.waiting_for_group_name)
@@ -1162,81 +1162,23 @@ async def add_group(callback: CallbackQuery,state: FSMContext) -> None:
     
 
 @dp.message(AddGroupState.waiting_for_group_name)
-async def process_group_name(message: Message, state: FSMContext) -> None:
-    group_name = message.text.strip()
-    await state.update_data(group_name=group_name)
-    await message.answer(
-        text="🔗 Premium guruh linkini kiriting:",
-        reply_markup=back_admin_btn()
-    )
-    await state.set_state(AddGroupState.waiting_for_group_link)
+async def process_group_name(message: Message, state: FSMContext):
+    text = message.text.strip()
 
-@dp.message(AddGroupState.waiting_for_group_link)
-async def process_group_link(message: Message, state: FSMContext) -> None:
-    group_link = message.text.strip()
-    if not group_link.startswith("https://t.me/") and not group_link.startswith("http://t.me/"):
-        await message.answer(
-            text="❌ Iltimos, to'g'ri guruh linkini kiriting (https://t.me/...)",
-            reply_markup=back_admin_btn()
-        )
+    try:
+        group_name, group_link = text.split(maxsplit=1)
+    except ValueError:
+        await message.answer("❌ Format: GuruhNomi link")
         return
-    
-    await state.update_data(group_link=group_link)
-    
-    await message.answer(
-        text="💎 Nechta olmos evaziga",
-        reply_markup=back_admin_btn()
-    )
-    await state.set_state(AddGroupState.waiting_for_olmos_amount)
-    
-    
-@dp.message(AddGroupState.waiting_for_olmos_amount)
-async def process_olmos_amount(message: Message, state: FSMContext) -> None:
-    olmos_amount_text = message.text.strip()
-    if not olmos_amount_text.isdigit():
-        await message.answer(
-            text="❌ Iltimos, to'g'ri olmos miqdorini kiriting (faqat raqamlar)",
-            reply_markup=back_admin_btn()
-        )
-        return
-    data = await state.get_data()
-    group_name = data.get("group_name")
-    group_link = data.get("group_link")
-    olmos_amount = int(olmos_amount_text)
-    group_id = data.get("group_id")
-    
-    if group_id:
-        group = PremiumGroup.objects.filter(id=group_id).first()
-        if group:
-            group.name = group_name
-            group.link = group_link
-            group.stones_for = olmos_amount
-            group.ends_date = default_end_date()
-            group.save()
-            await message.answer(
-                text=f"✅ Premium guruh muvaffaqiyatli yangilandi!\n\n"
-                     f"Nomi: {group_name}\n"
-                     f"Link: {group_link}",
-                reply_markup=admin_inline_btn()
-            )
-            await state.clear()
-            return
 
-    PremiumGroup.objects.create(
-        name=group_name,
-        link=group_link,
-        stones_for=olmos_amount,
-        ends_date=default_end_date()
+    await LanguageGroups.objects.create(
+        group_name=group_name,
+        gorup_link=group_link
     )
 
-    await message.answer(
-        text=f"✅ Premium guruh muvaffaqiyatli qo'shildi!\n\n"
-             f"Nomi: {group_name}\n"
-             f"Link: {group_link}\n"
-             f"Olmos evaziga: {olmos_amount}",
-        reply_markup=admin_inline_btn()
-    )
+    await message.answer("✅ Guruh saqlandi")
     await state.clear()
+
     
 
 @dp.callback_query(F.data.startswith("manage_"))
@@ -1255,7 +1197,7 @@ async def manage_group(callback: CallbackQuery,state : FSMContext) -> None:
         await state.set_state(AddGroupState.waiting_for_group_name)
         return
     elif action == "delete":
-        group = PremiumGroup.objects.filter(id=group_id).first()
+        group = LanguageGroups.objects.filter(id=group_id).first()
         if group:
             group.delete()
             await callback.message.edit_text(
@@ -1509,7 +1451,6 @@ async def statistics_callback(callback: CallbackQuery):
 
     total_users = User.objects.count()
     total_admins = User.objects.filter(role='admin').count()
-    total_premium_groups = PremiumGroup.objects.count()
     total_games = Game.objects.count()
     bot_working_in_groups = GroupTrials.objects.count()
 
@@ -1622,7 +1563,6 @@ async def statistics_callback(callback: CallbackQuery):
             f"📊 Bot Statistikasi\n\n"
             f"👥 Foydalanuvchilar soni: {total_users}\n"
             f"🛡️ Adminlar soni: {total_admins}\n"
-            f"🌟 Premium guruhlar soni: {total_premium_groups}\n"
             f"🤖 Bot ishlayotgan guruhlar soni: {bot_working_in_groups}\n"
             f"🎲 O'yinlar soni: {total_games}\n\n"
             f"{most_wins_text}"
@@ -2333,32 +2273,7 @@ async def close_callback(callback: CallbackQuery):
         return
     await callback.message.delete()
     
-    
-@dp.callback_query(F.data.startswith("prem_"))
-async def premium_manage_callback(callback: CallbackQuery):
-    amount = int(callback.data.split("_")[1])
-    chat_id = int(callback.data.split("_")[2])
-    game_trial = GroupTrials.objects.filter(group_id=chat_id).first()
-    if not game_trial:
-        await callback.answer("❌ Guruh topilmadi.")
-        return
-    game_trial.premium_stones = amount
-    game_trial.stones -= amount
-    game_trial.prem_ends_date = timezone.now() + timedelta(days=14)
-    game_trial.save()
-    await callback.answer(text=f"✅ Guruhga {amount} olmosli premium berildi.", show_alert=True)
-    PremiumGroup.objects.update_or_create(
-        name = game_trial.group_name,
-        group_id = chat_id,
-        defaults={
-            "link": game_trial.group_username,
-            "ends_date": timezone.now() + timedelta(days=14),
-            "stones_for": amount
-        }
-    )
-        
-        
-    
+
 
 @dp.callback_query(F.data == "privacy")
 async def privacy_callback(callback: CallbackQuery):
